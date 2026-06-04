@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moonbeam Oysters — Property Impact Simulator</title>
+<style>
+  :root {
+    --navy: #0e2236; --navy-deep: #081726; --coral: #e07a5f; --coral-soft: #f2cc8f;
+    --teal: #1d9e75; --teal-deep: #0f6e56; --sand: #f4f1ea; --paper: #fbf9f4;
+    --ink: #1a1a17; --muted: #6b6b64; --line: rgba(14,34,54,0.12); --water-clear: #2f86b0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia,'Times New Roman',serif; background: var(--paper); color: var(--ink); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+
+  header { background: var(--navy); color: var(--paper); padding: 26px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand-mark { width: 52px; height: 52px; border-radius: 50%; border: 1.5px solid var(--coral-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .brand-mark svg { width: 30px; height: 30px; }
+  .brand h1 { font-size: 26px; font-weight: normal; letter-spacing: 0.06em; line-height: 1.05; }
+  .brand .sub { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--coral-soft); margin-top: 4px; }
+  .tagline { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,249,244,0.7); text-align: right; max-width: 230px; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 64px; }
+  .intro { padding: 26px 4px 4px; max-width: 820px; }
+  .intro h2 { font-size: 30px; font-weight: normal; line-height: 1.15; margin-bottom: 10px; }
+  .intro p { color: var(--muted); font-size: 16px; }
+  .steps { display: flex; margin: 22px 4px 4px; flex-wrap: wrap; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; }
+  .step { display: flex; align-items: center; gap: 10px; padding: 10px 20px 10px 0; color: var(--muted); font-size: 13px; }
+  .step .num { width: 24px; height: 24px; border-radius: 50%; background: var(--teal); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0; }
+  .step:not(:last-child)::after { content:"→"; margin-left: 14px; color: var(--line); }
+
+  .stage { display: grid; grid-template-columns: 1.4fr 1fr; gap: 28px; margin-top: 20px; align-items: start; }
+  @media (max-width: 880px) { .stage { grid-template-columns: 1fr; } }
+
+  .scene-card { background: var(--navy); border-radius: 14px; overflow: hidden; box-shadow: 0 12px 40px rgba(8,23,38,0.18); }
+  .scene-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px 10px; color: var(--paper); flex-wrap: wrap; gap: 10px; }
+  .scene-head .label { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--coral-soft); }
+  .toggle { display: inline-flex; border: 1px solid rgba(242,204,143,0.4); border-radius: 999px; overflow: hidden; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; }
+  .toggle button { background: transparent; border: none; color: rgba(251,249,244,0.65); padding: 6px 14px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: all 0.25s; }
+  .toggle button.active { background: var(--coral-soft); color: var(--navy-deep); font-weight: bold; }
+  .toggle button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .site-bar { display: flex; gap: 10px; align-items: center; padding: 0 18px 12px; flex-wrap: wrap; }
+  .site-bar input[type=text] { flex: 1; min-width: 180px; background: rgba(255,255,255,0.07); border: 1px solid rgba(242,204,143,0.25); color: var(--paper); border-radius: 8px; padding: 9px 12px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 13px; }
+  .site-bar input[type=text]::placeholder { color: rgba(251,249,244,0.4); }
+  .upload-btn { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; font-weight: 600; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--teal); background: var(--teal); color: #fff; cursor: pointer; white-space: nowrap; transition: all 0.2s; display: inline-flex; align-items: center; gap: 7px; }
+  .upload-btn:hover { background: var(--teal-deep); }
+  .upload-btn svg { width: 14px; height: 14px; }
+
+  .scene-svg-wrap { position: relative; aspect-ratio: 16 / 11; background: #cfe3ee; }
+  svg.scene { display: block; width: 100%; height: 100%; }
+
+  #photoLayer { position: absolute; inset: 0; display: none; overflow: hidden; background: var(--navy-deep); }
+  #photoImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #clarityTint { position: absolute; inset: 0; pointer-events: none; transition: opacity 0.3s, background 0.4s; }
+  #reefMarker { position: absolute; transform: translate(-50%,-50%); cursor: grab; touch-action: none; will-change: left,top; z-index: 3; }
+  #reefMarker:active { cursor: grabbing; }
+  #reefMarker .rm-box { border: 2px solid #2db58a; background: rgba(45,181,138,0.32); border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: grid; gap: 2px; padding: 4px; }
+  #reefMarker .rm-box i { width: 5px; height: 5px; border-radius: 50%; background: #eadfc4; display: block; }
+  #reefMarker .rm-tag { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 10px; font-weight: bold; color: #fff; background: rgba(8,23,38,0.82); padding: 3px 8px; border-radius: 5px; }
+  #reefMarker .rm-hint { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 9px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+  .pbubble { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.65); pointer-events: none; animation: bubbleRise 4s ease-in infinite; z-index: 2; }
+  #photoCallout { position: absolute; left: 14px; bottom: 14px; background: rgba(8,23,38,0.85); color: #fff; padding: 10px 14px; border-radius: 10px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; pointer-events: none; max-width: 62%; z-index: 3; }
+  #photoCallout .pc-big { font-size: 20px; font-weight: bold; color: var(--coral-soft); }
+  #photoCallout .pc-sub { font-size: 11px; opacity: 0.9; margin-top: 2px; }
+  .photo-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: rgba(251,249,244,0.7); font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; text-align: center; padding: 30px; z-index: 4; }
+  .photo-empty svg { width: 46px; height: 46px; opacity: 0.6; }
+  .photo-empty .pe-title { font-size: 15px; font-weight: 600; color: var(--paper); }
+  .photo-empty .pe-sub { font-size: 12px; max-width: 340px; line-height: 1.5; }
+
+  .scrubber { padding: 14px 20px 18px; background: var(--navy-deep); border-top: 1px solid rgba(242,204,143,0.18); }
+  .scrub-row { display: flex; align-items: center; gap: 14px; }
+  .play-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(242,204,143,0.5); background: var(--coral); color: var(--navy-deep); cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .play-btn:hover { transform: scale(1.06); }
+  .play-btn svg { width: 16px; height: 16px; }
+  .scrub-main { flex: 1; }
+  .scrub-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; }
+  .scrub-top .s-label { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(251,249,244,0.6); }
+  .scrub-top .s-val { font-size: 18px; font-weight: bold; color: var(--coral-soft); }
+  .scrub-top .s-val span { font-size: 12px; color: rgba(251,249,244,0.5); font-weight: normal; letter-spacing: 0; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.15); outline: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--coral); border: 3px solid var(--navy-deep); box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--coral); border: 3px solid var(--navy-deep); box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer; }
+  .scrub-ticks { display: flex; justify-content: space-between; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 10px; color: rgba(251,249,244,0.45); margin-top: 7px; }
+
+  .scene-foot { padding: 12px 18px 16px; color: rgba(251,249,244,0.85); font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+  .scene-foot .chip { display: flex; align-items: center; gap: 7px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; transition: background 0.4s; }
+  .scene-foot .hint-text { color: rgba(251,249,244,0.5); font-style: italic; }
+
+  .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; }
+  .panel h3 { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal-deep); margin-bottom: 6px; }
+  .panel .panel-sub { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+  .ctrl { margin-bottom: 22px; }
+  .ctrl-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .ctrl-top label { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; display: flex; align-items: center; gap: 6px; }
+  .ctrl-top .val { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 15px; font-weight: bold; color: var(--coral); }
+  .ctrl .hint { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .ctrl input[type=range] { background: var(--line); }
+  .ctrl input[type=range]::-webkit-slider-thumb { border-color: var(--paper); }
+  .ctrl input[type=range]::-moz-range-thumb { border-color: var(--paper); }
+  .info { width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--muted); color: var(--muted); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; cursor: help; font-style: italic; position: relative; }
+  .info:hover .tip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+  .tip { position: absolute; bottom: 130%; left: 50%; transform: translate(-50%, 6px); width: 210px; background: var(--navy); color: var(--paper); font-size: 11px; font-style: normal; padding: 9px 11px; border-radius: 8px; line-height: 1.45; opacity: 0; visibility: hidden; transition: all 0.2s; z-index: 20; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+  .ticks { display: flex; justify-content: space-between; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { flex: 1; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; padding: 9px 6px; border: 1px solid var(--line); background: #fff; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: var(--muted); }
+  .seg button:hover { border-color: var(--teal); }
+  .seg button.active { border-color: var(--teal); background: var(--teal); color: #fff; font-weight: 600; }
+  .reset { width: 100%; margin-top: 4px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; padding: 10px; border: 1px solid var(--line); background: transparent; border-radius: 8px; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+  .reset:hover { background: var(--sand); color: var(--ink); }
+
+  .metrics-title { margin: 40px 4px 16px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: baseline; }
+  .metrics-title .at { font-size: 10px; color: var(--teal); letter-spacing: 0.1em; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .metric { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px 20px 18px; position: relative; overflow: hidden; }
+  .metric .accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+  .metric .m-label { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .metric .m-val { font-size: 31px; line-height: 1; font-weight: normal; }
+  .metric .m-unit { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .metric .m-foot { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 11px; color: var(--teal-deep); margin-top: 10px; font-weight: 600; }
+
+  .compare { margin-top: 28px; background: var(--navy); border-radius: 14px; padding: 26px 28px; color: var(--paper); }
+  .compare h3 { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--coral-soft); margin-bottom: 6px; }
+  .compare .csub { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; color: rgba(251,249,244,0.6); margin-bottom: 20px; }
+  .crow { margin-bottom: 18px; }
+  .crow .clabel { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 6px; color: rgba(251,249,244,0.8); }
+  .ctrack { height: 26px; background: rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; }
+  .cfill { height: 100%; display: flex; align-items: center; padding-left: 12px; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 12px; font-weight: bold; color: var(--navy-deep); transition: width 0.5s ease; white-space: nowrap; }
+  .cfill.wild { background: var(--coral-soft); }
+  .cfill.moon { background: var(--teal); color: #fff; }
+
+  .sources { margin: 26px 4px 0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 11px; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--line); padding-top: 16px; }
+  .sources b { color: var(--ink); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; }
+  .sources a { color: var(--teal-deep); text-decoration: none; }
+  .sources a:hover { text-decoration: underline; }
+
+  footer { text-align: center; padding: 28px; color: var(--muted); font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size: 11px; letter-spacing: 0.05em; }
+  footer a { color: var(--teal-deep); }
+
+  @keyframes cloudDrift { 0%{transform:translateX(-24px)} 100%{transform:translateX(34px)} }
+  @keyframes gullFly { 0%{transform:translate(0,0)} 100%{transform:translate(150px,-20px)} }
+  @keyframes waveShift { 0%{transform:translateX(0)} 100%{transform:translateX(-80px)} }
+  @keyframes bubbleRise { 0%{transform:translateY(0);opacity:0} 14%{opacity:.75} 100%{transform:translateY(-130px);opacity:0} }
+  @keyframes sway { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
+  @keyframes fishSwim { 0%{transform:translateX(0)} 100%{transform:translateX(150px)} }
+  @keyframes shaftPulse { 0%,100%{opacity:.10} 50%{opacity:.26} }
+  .cloud { animation: cloudDrift 30s ease-in-out infinite alternate; }
+  .gull { animation: gullFly 26s linear infinite; }
+  .waveband { animation: waveShift 9s linear infinite; }
+  .waveband.slow { animation-duration: 15s; }
+  .bubble { animation: bubbleRise 4s ease-in infinite; }
+  .grass { transform-box: fill-box; transform-origin: 50% 100%; animation: sway 5s ease-in-out infinite; }
+  .fish { animation: fishSwim 18s linear infinite; }
+  .shaft { animation: shaftPulse 7s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .cloud,.gull,.waveband,.bubble,.grass,.fish,.shaft,.pbubble { animation: none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark"><svg viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="9" stroke="#f2cc8f" stroke-width="1.4"/><path d="M9 17 Q15 22 21 17" stroke="#f2cc8f" stroke-width="1.4" fill="none"/><circle cx="15" cy="13" r="3.4" fill="#e07a5f"/></svg></div>
+    <div><h1>Moonbeam Oysters</h1><div class="sub">Chesapeake Bay Restoration</div></div>
+  </div>
+  <div class="tagline">See the change your waterfront makes</div>
+</header>
+
+<div class="wrap">
+  <div class="intro">
+    <h2>Property impact simulator</h2>
+    <p>Configure a reef installation and watch the water column change across the first year — or upload a photo of a real property to drop the reef onto it. Figures are derived from Moonbeam's per-unit specifications and published Chesapeake Bay oyster science (sources listed below).</p>
+  </div>
+
+  <div class="steps">
+    <div class="step"><span class="num">1</span> Set your reef configuration</div>
+    <div class="step"><span class="num">2</span> Play or scrub the timeline</div>
+    <div class="step"><span class="num">3</span> Read the impact to date</div>
+  </div>
+
+  <div class="stage">
+    <div class="scene-card">
+      <div class="scene-head">
+        <span class="label">Your shoreline</span>
+        <div class="toggle" id="view-toggle">
+          <button data-view="side" class="active">Cross-section</button>
+          <button data-view="birds">Bird's eye</button>
+          <button data-view="photo" id="photoTab" disabled>Your photo</button>
+        </div>
+      </div>
+      <div class="site-bar">
+        <input type="text" id="address" placeholder="Property address or site name (optional label)">
+        <button class="upload-btn" id="uploadBtn"><svg viewBox="0 0 14 14" fill="currentColor"><path d="M7 0 L11 4 L8.2 4 L8.2 8 L5.8 8 L5.8 4 L3 4 Z"/><rect x="1" y="11" width="12" height="2.5"/></svg>Upload photo</button>
+        <input type="file" id="fileInput" accept="image/*" style="display:none">
+      </div>
+
+      <div class="scene-svg-wrap">
+        <!-- ===== CROSS-SECTION (depth) VIEW ===== -->
+        <svg class="scene" id="sceneSide" viewBox="0 0 640 440" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ec3df"/><stop offset="0.7" stop-color="#bfe0ee"/><stop offset="1" stop-color="#e4f1f6"/></linearGradient>
+            <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fff6df" stop-opacity="0.95"/><stop offset="0.5" stop-color="#ffe9b0" stop-opacity="0.4"/><stop offset="1" stop-color="#ffe9b0" stop-opacity="0"/></radialGradient>
+            <!-- base water color stays constant (realistic estuary blue-green) -->
+            <linearGradient id="waterG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#5fa6c0"/>
+              <stop offset="0.45" stop-color="#2f7390"/>
+              <stop offset="1" stop-color="#0f3850"/>
+            </linearGradient>
+            <!-- turbidity overlay: obscures everything below the visible-depth line; recedes as water clears -->
+            <linearGradient id="turbid" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#4a5436" stop-opacity="0" id="tb0"/>
+              <stop offset="0.28" stop-color="#4a5436" stop-opacity="0.07" id="tb1"/>
+              <stop offset="0.5" stop-color="#444d33" stop-opacity="0.9" id="tb2"/>
+              <stop offset="1" stop-color="#39432e" stop-opacity="0.96" id="tb3"/>
+            </linearGradient>
+            <clipPath id="waterClip"><path d="M0 150 L640 150 L640 440 L0 440 Z"/></clipPath>
+            <filter id="soft"><feGaussianBlur stdDeviation="1.1"/></filter>
+            <filter id="caustics" x="0" y="0" width="100%" height="100%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.014 0.05" numOctaves="2" seed="7" result="n"><animate attributeName="baseFrequency" dur="24s" values="0.014 0.05;0.02 0.06;0.014 0.05" repeatCount="indefinite"/></feTurbulence>
+              <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.75  0 0 0 0 0.92  0 0 0 0 1  0 0 0 1.0 -0.5"/>
+            </filter>
+          </defs>
+
+          <!-- SKY (upper ~34%) -->
+          <rect x="0" y="0" width="640" height="158" fill="url(#sky)"/>
+          <circle cx="92" cy="46" r="46" fill="url(#sunGlow)"/><circle cx="92" cy="46" r="17" fill="#fff3d0"/>
+          <g class="cloud" opacity="0.85" filter="url(#soft)"><ellipse cx="430" cy="44" rx="48" ry="13" fill="#fff"/><ellipse cx="468" cy="38" rx="30" ry="11" fill="#fff"/><ellipse cx="398" cy="40" rx="26" ry="9" fill="#f4f9fb"/></g>
+          <g class="gull" fill="none" stroke="#5b6b73" stroke-width="1.3" opacity="0.5"><path d="M250 40 q6 -6 12 0 q6 -6 12 0"/></g>
+          <g class="gull" style="animation-duration:34s; animation-delay:-10s" fill="none" stroke="#5b6b73" stroke-width="1.1" opacity="0.4"><path d="M150 30 q5 -5 10 0 q5 -5 10 0"/></g>
+
+          <!-- LEFT BANK: land wedge with house + dock, so we read a shoreline going into deeper water to the right -->
+          <path d="M0 110 L150 110 Q175 128 172 150 L0 150 Z" fill="#7e9b5f"/>
+          <path d="M0 110 L150 110 Q175 128 172 150 L150 150 Q150 126 120 120 L0 124 Z" fill="#8fac6c" opacity="0.7"/>
+          <g transform="translate(20,70)" filter="url(#soft)">
+            <rect x="0" y="22" width="74" height="42" fill="#e6dac4"/><path d="M-10 22 L37 -4 L84 22 Z" fill="#9a6f44"/><path d="M37 -4 L84 22 L74 22 L37 4 Z" fill="#000" opacity="0.12"/>
+            <rect x="12" y="34" width="15" height="18" fill="#88b0c2"/><rect x="46" y="34" width="15" height="18" fill="#88b0c2"/><rect x="30" y="46" width="14" height="18" fill="#6b4a32"/>
+          </g>
+          <!-- dock extends right over the water surface -->
+          <rect x="150" y="146" width="150" height="9" fill="#8a6646"/><rect x="150" y="144" width="150" height="3" fill="#a8825c"/>
+          <g stroke="#5a4029" stroke-width="0.8" opacity="0.45"><line x1="180" y1="144" x2="180" y2="155"/><line x1="215" y1="144" x2="215" y2="155"/><line x1="250" y1="144" x2="250" y2="155"/><line x1="285" y1="144" x2="285" y2="155"/></g>
+          <rect x="196" y="153" width="7" height="150" fill="#5a4029" opacity="0.85"/><rect x="256" y="153" width="7" height="190" fill="#5a4029" opacity="0.85"/>
+
+          <!-- WATER COLUMN (the lower ~66%) -->
+          <rect x="0" y="150" width="640" height="290" fill="url(#waterG)"/>
+          <!-- caustic light just under surface -->
+          <rect x="0" y="150" width="640" height="120" fill="#fff" filter="url(#caustics)" clip-path="url(#waterClip)" style="mix-blend-mode:screen" id="causticLayer" opacity="0.5"/>
+          <!-- surface waves -->
+          <g clip-path="url(#waterClip)">
+            <g class="waveband"><path d="M-80 152 Q-40 148 0 152 T80 152 T160 152 T240 152 T320 152 T400 152 T480 152 T560 152 T640 152 T720 152 T800 152" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.4"/></g>
+            <g class="waveband slow"><path d="M-80 158 Q-40 154 0 158 T80 158 T160 158 T240 158 T320 158 T400 158 T480 158 T560 158 T640 158 T720 158 T800 158" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1"/></g>
+          </g>
+          <!-- light shafts angling down -->
+          <g id="shafts" clip-path="url(#waterClip)"></g>
+          <!-- suspended sediment particles (fade out as water clears) -->
+          <g id="particles" clip-path="url(#waterClip)"></g>
+          <!-- sloping seabed from shallow (left) to deep (right) -->
+          <path id="seabedFloor" d="M0 300 Q160 318 340 350 Q480 374 640 392 L640 440 L0 440 Z" fill="#5b4a33"/>
+          <path d="M0 300 Q160 318 340 350 Q480 374 640 392 L640 400 Q480 382 340 358 Q160 326 0 308 Z" fill="#6e5a3e" opacity="0.7"/>
+          <!-- seagrass beds rooted on the floor (reveal as clarity rises) -->
+          <g id="seabed"></g>
+          <!-- fish (reveal as clarity rises) -->
+          <g id="fish"></g>
+          <!-- reef -->
+          <g id="reef"></g>
+          <!-- bubbles -->
+          <g id="bubbles" clip-path="url(#waterClip)"></g>
+          <!-- TURBIDITY overlay: sits above the scene; hides everything below the visible-depth line -->
+          <rect id="turbidLayer" x="0" y="150" width="640" height="290" fill="url(#turbid)" clip-path="url(#waterClip)"/>
+          <!-- SECCHI visibility marker + DEPTH SCALE (always on top) -->
+          <g id="secchi"></g>
+          <g id="depthScale" font-family="Helvetica" font-size="9" fill="#eaf4f8"></g>
+        </svg>
+
+        <!-- ===== BIRD'S EYE ===== -->
+        <svg class="scene" id="sceneBirds" viewBox="0 0 640 440" preserveAspectRatio="xMidYMid meet" style="display:none">
+          <defs>
+            <linearGradient id="bWaterG" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#3a90b8" id="bwTop"/><stop offset="1" stop-color="#103f59" id="bwBot"/></linearGradient>
+            <radialGradient id="bDepth" cx="0.32" cy="0.18" r="0.95"><stop offset="0" stop-color="#fff" stop-opacity="0.12"/><stop offset="1" stop-color="#000" stop-opacity="0.16"/></radialGradient>
+            <filter id="bCaustics"><feTurbulence type="fractalNoise" baseFrequency="0.018 0.022" numOctaves="2" seed="3" result="n"><animate attributeName="baseFrequency" dur="26s" values="0.018 0.022;0.024 0.03;0.018 0.022" repeatCount="indefinite"/></feTurbulence><feColorMatrix in="n" type="matrix" values="0 0 0 0 0.7  0 0 0 0 0.9  0 0 0 0 1  0 0 0 0.9 -0.4"/></filter>
+            <pattern id="bMurk" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="5" cy="7" r="1.3" fill="#cabf8a" opacity="0.4"/><circle cx="15" cy="14" r="1" fill="#cabf8a" opacity="0.32"/></pattern>
+            <filter id="bSoft"><feGaussianBlur stdDeviation="1.1"/></filter>
+          </defs>
+          <rect x="0" y="0" width="640" height="440" fill="url(#bWaterG)"/>
+          <rect x="0" y="0" width="640" height="440" fill="#fff" filter="url(#bCaustics)" style="mix-blend-mode:screen" opacity="0.35"/>
+          <rect x="0" y="0" width="640" height="440" fill="url(#bDepth)"/>
+          <rect x="0" y="0" width="640" height="440" fill="url(#bMurk)" id="bMurkLayer" opacity="0"/>
+          <path d="M0 0 L640 0 L640 64 Q470 90 320 114 Q170 138 0 126 Z" fill="#5f7d4e"/>
+          <path d="M0 0 L640 0 L640 50 Q470 76 320 100 Q170 124 0 112 Z" fill="#6b8a57" opacity="0.6"/>
+          <path d="M0 126 Q170 138 320 114 Q470 90 640 64 L640 80 Q470 106 320 130 Q170 154 0 142 Z" fill="#cdbd95"/>
+          <g opacity="0.9" filter="url(#bSoft)"><circle cx="500" cy="32" r="16" fill="#4c6b3c"/><circle cx="515" cy="42" r="11" fill="#5d7c47"/><circle cx="90" cy="28" r="14" fill="#4c6b3c"/><circle cx="103" cy="39" r="9" fill="#5d7c47"/><circle cx="588" cy="48" r="11" fill="#4c6b3c"/></g>
+          <g transform="translate(150,28) rotate(-6)" filter="url(#bSoft)"><rect x="0" y="0" width="98" height="62" fill="#d2c4a6" stroke="#7a5c3c" stroke-width="1.5"/><path d="M0 0 L49 27 L98 0" fill="none" stroke="#7a5c3c" stroke-width="1.3"/><path d="M0 62 L49 35 L98 62" fill="none" stroke="#7a5c3c" stroke-width="1.3"/><line x1="49" y1="27" x2="49" y2="35" stroke="#7a5c3c" stroke-width="1.3"/></g>
+          <path d="M252 6 Q302 70 362 110" fill="none" stroke="#bcae8f" stroke-width="7" opacity="0.55" stroke-linecap="round"/>
+          <g transform="rotate(10 322 150)"><rect x="312" y="118" width="20" height="122" rx="3" fill="#75543a"/><g stroke="#5a4029" stroke-width="0.8" opacity="0.55"><line x1="312" y1="140" x2="332" y2="140"/><line x1="312" y1="166" x2="332" y2="166"/><line x1="312" y1="192" x2="332" y2="192"/><line x1="312" y1="216" x2="332" y2="216"/></g><circle cx="314" cy="124" r="2.4" fill="#4a3322"/><circle cx="330" cy="124" r="2.4" fill="#4a3322"/><circle cx="314" cy="236" r="2.4" fill="#4a3322"/><circle cx="330" cy="236" r="2.4" fill="#4a3322"/></g>
+          <g id="bWild"></g>
+          <g id="bReef"></g>
+          <g transform="translate(34,406)" font-family="Helvetica" font-size="9" fill="#eef4f7"><rect x="0" y="-5" width="40" height="5" fill="#eef4f7"/><rect x="40" y="-5" width="40" height="5" fill="none" stroke="#eef4f7" stroke-width="1"/><text x="0" y="12">0</text><text x="74" y="12">~80 ft</text></g>
+          <g transform="translate(602,402)" opacity="0.9"><circle r="17" fill="rgba(8,23,38,0.4)"/><path d="M0 -12 L4 2 L0 -2 L-4 2 Z" fill="#f2cc8f"/><text y="13" text-anchor="middle" font-family="Helvetica" font-size="9" fill="#fff" font-weight="bold">N</text></g>
+          <g transform="translate(458,18)" font-family="Helvetica" font-size="10" fill="#eef4f7"><rect x="-12" y="-12" width="178" height="50" rx="6" fill="rgba(8,23,38,0.42)"/><rect x="0" y="-4" width="14" height="9" rx="2" fill="#2db58a"/><text x="20" y="4">Moonbeam units</text><rect x="0" y="14" width="14" height="9" rx="2" fill="none" stroke="#f2cc8f" stroke-dasharray="3 2"/><text x="20" y="22">Equivalent wild reef</text></g>
+        </svg>
+
+        <!-- ===== PHOTO LAYER ===== -->
+        <div id="photoLayer">
+          <img id="photoImg" alt="">
+          <div id="clarityTint"></div>
+          <div id="photoCallout"><div class="pc-big" id="pcBig">—</div><div class="pc-sub" id="pcSub"></div></div>
+          <div id="reefMarker"><div class="rm-tag" id="rmTag">Moonbeam reef</div><div class="rm-box" id="rmBox"></div><div class="rm-hint">drag to position</div></div>
+          <div class="photo-empty" id="photoEmpty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.8"/><path d="M21 16 L15 11 L6 19"/></svg>
+            <div class="pe-title">Upload a photo of the property</div>
+            <div class="pe-sub">A waterfront photo or a satellite screenshot works best. The reef drops on top — drag it over the water, then play the timeline to show the change.</div>
+            <button class="upload-btn" id="uploadBtn2"><svg viewBox="0 0 14 14" fill="currentColor"><path d="M7 0 L11 4 L8.2 4 L8.2 8 L5.8 8 L5.8 4 L3 4 Z"/><rect x="1" y="11" width="12" height="2.5"/></svg>Choose image</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="scrubber">
+        <div class="scrub-row">
+          <button class="play-btn" id="playBtn" aria-label="Play timeline"><svg id="playIcon" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2 L13 8 L3 14 Z"/></svg></button>
+          <div class="scrub-main">
+            <div class="scrub-top"><span class="s-label">Time since deployment</span><span class="s-val" id="timeLabel">3 months <span id="timeDays">· day 90</span></span></div>
+            <input type="range" id="time" min="0" max="365" value="90" step="1">
+            <div class="scrub-ticks"><span>Day 0</span><span>3 mo</span><span>6 mo</span><span>9 mo</span><span>12 mo</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="scene-foot">
+        <span class="chip"><span class="dot" style="background:var(--teal)"></span> Active reef units</span>
+        <span class="chip"><span class="dot" id="clarityDot" style="background:var(--water-clear)"></span> <span id="clarityLabel">Clarity</span></span>
+        <span class="hint-text" id="viewHint">The dashed line is visibility depth — how far down you can see as the reef clears the water.</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Reef configuration</h3>
+      <div class="panel-sub">Adjust to match a real site, then play the timeline and present the impact below.</div>
+      <div class="ctrl">
+        <div class="ctrl-top"><label>Reef units deployed<span class="info">i<span class="tip">Each unit is a 15′×35′ structure with a 525 ft² footprint, stocked with mature adult oysters.</span></span></label><span class="val" id="unitsVal">3</span></div>
+        <input type="range" id="units" min="1" max="12" value="3" step="1"><div class="ticks"><span>1</span><span>6</span><span>12</span></div>
+        <div class="hint" id="unitsHint">3 units · 1,575 ft² total footprint</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top"><label>Stocking density<span class="info">i<span class="tip">High-density uses a layered matrix to fit ~120 oysters/ft² in the same footprint, nearly doubling output.</span></span></label><span class="val" id="densityVal">Base</span></div>
+        <div class="seg" id="density"><button data-d="base" class="active">Base · 71/ft²</button><button data-d="high">High · 120/ft²</button></div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top"><label>Source water quality<span class="info">i<span class="tip">Moonbeam's South River site sits in the 7–15 ppt mesohaline zone, which naturally suppresses Dermo &amp; MSX disease.</span></span></label><span class="val" id="waterVal">Mesohaline</span></div>
+        <input type="range" id="water" min="0" max="100" value="70" step="5"><div class="ticks"><span>Stressed</span><span>Brackish</span><span>Ideal</span></div>
+        <div class="hint">Healthier water means faster filtration and quicker clearing.</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top"><label>Deployment type<span class="info">i<span class="tip">Floating gear hangs near the surface for maximum oxygen and food access. Sinkable cages rest on the bay floor.</span></span></label><span class="val" id="deployVal">Floating</span></div>
+        <div class="seg" id="deploy"><button data-t="float" class="active">Floating matrix</button><button data-t="sink">Sinkable cage</button></div>
+      </div>
+      <button class="reset" id="reset">↺ Reset to typical pilot (3 units · 3 months)</button>
+    </div>
+  </div>
+
+  <div class="metrics-title"><span>Projected impact at this property</span><span class="at" id="metricsAt">at 3 months</span></div>
+  <div class="metrics" id="metrics"></div>
+
+  <div class="compare">
+    <h3>Footprint vs. traditional bottom reef</h3>
+    <div class="csub">Same biomass, a fraction of the space — switch to bird's-eye view above to see it spatially.</div>
+    <div class="crow"><div class="clabel"><span>Traditional spat-on-shell reef</span><span id="wildArea">80,355 ft²</span></div><div class="ctrack"><div class="cfill wild" id="wildBar" style="width:100%">acres for equal biomass</div></div></div>
+    <div class="crow"><div class="clabel"><span>Moonbeam adult-oyster units</span><span id="moonArea">1,575 ft²</span></div><div class="ctrack"><div class="cfill moon" id="moonBar" style="width:10%">~90% smaller footprint</div></div></div>
+  </div>
+
+  <div class="sources">
+    <b>Data sources</b><br>
+    Filtration ~50 gal/adult oyster/day at peak — <a href="https://www.chesapeakebay.net/discover/field-guide/entry/eastern-oyster" target="_blank" rel="noopener">Chesapeake Bay Program</a>; matches Moonbeam's 1.87M gal/day per base unit.
+    Nitrogen removal via tissue assimilation ~198 lbs per million oysters harvested (Chesapeake Bay Program BMP) — <a href="https://coastalscience.noaa.gov/project/predicting-nitrogen-removal-by-the-eastern-oyster-aquaculture-industry/" target="_blank" rel="noopener">NOAA NCCOS</a>; a restored reef removes ~500 lbs N/acre/yr — <a href="https://www.vims.edu/research/topics/oysters/ts_archive/oyster_nutrient_removal.php" target="_blank" rel="noopener">VIMS / Kellogg et al.</a>
+    Fecundity ~28–54 million eggs per female per season — <a href="https://www.st.nmfs.noaa.gov/Assets/ecosystems/climate/images/species-results/pdfs/Eastern_Oyster.pdf" target="_blank" rel="noopener">NOAA EOBRT</a>.
+    Footprint, stocking density, and pricing from the Moonbeam 2026 spec sheet. Clarity/visibility shown is an illustrative local-effect model for demonstration, not a site-specific guarantee.
+  </div>
+</div>
+
+<footer>
+  Moonbeam Oysters · 501(c)(3) nonprofit · Chesapeake Bay shoreline restoration · <a href="https://www.moonbeamoysters.org">moonbeamoysters.org</a><br>
+  Uploaded photos stay in your browser and are never sent anywhere.
+</footer>
+
+<script>
+(function(){
+  // ----- spec-sheet constants -----
+  const FOOTPRINT=525, OYSTERS_BASE=37500, OYSTERS_HIGH=63000;
+  const FILTER_BASE=1.87e6, FILTER_HIGH=3.15e6, WILD_EQUIV_FT2=26785, COST_PER_UNIT=5250;
+  // ----- research-backed constants -----
+  const N_LBS_PER_MILLION_OYSTERS=198;     // Chesapeake Bay Program BMP (tissue assimilation)
+  const EGGS_PER_FEMALE=40e6;              // ~28-54M eggs/female/season (NOAA EOBRT) -> midpoint
+  const FEMALE_FRACTION=0.5;               // protandric; ~half mature as female
+  const SPAWN_RAMP_DAYS=70;                // gradual ramp to first full spawning season
+
+  const DEFAULT={ units:3, density:'base', water:70, deploy:'float', time:90, view:'side' };
+  let state=Object.assign({}, DEFAULT);
+  let reefPos={x:50,y:64}, hasPhoto=false;
+
+  const $=id=>document.getElementById(id);
+  const fmt=n=>n.toLocaleString('en-US');
+  const fmtM=n=>(n/1e6).toFixed(2);
+  function bigVol(g){ if(g>=1e9) return [(g/1e9).toFixed(2),'billion gallons']; if(g>=1e6) return [(g/1e6).toFixed(0),'million gallons']; return [fmt(Math.round(g)),'gallons']; }
+  function bigNum(n){ if(n>=1e9) return [(n/1e9).toFixed(2),'billion']; if(n>=1e6) return [(n/1e6).toFixed(0),'million']; return [fmt(Math.round(n)),'']; }
+  function timeLabel(d){ d=Math.round(d); if(d===0) return 'Deployment day'; if(d<14) return d+(d===1?' day':' days'); if(d<61) return Math.round(d/7)+' weeks'; return Math.round(d/30)+(Math.round(d/30)===1?' month':' months'); }
+  function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  const lerp=(a,b,t)=>a+(b-a)*t;
+
+  function waterFactor(){ return 0.55 + (state.water/100)*0.45; }
+  function clarityFrac(){ const tau=45/Math.sqrt(state.units/3); return 1-Math.exp(-state.time/tau); }
+
+  function compute(){
+    const u=state.units, t=state.time;
+    const oy=(state.density==='high'?OYSTERS_HIGH:OYSTERS_BASE)*u;
+    const depMult=state.deploy==='float'?1.0:0.82;
+    const filtRate=(state.density==='high'?FILTER_HIGH:FILTER_BASE)*u*depMult*waterFactor();
+    const cumFilt=filtRate*t;
+    const cumN=(oy/1e6)*N_LBS_PER_MILLION_OYSTERS*(t/365);            // tissue assimilation accrued over time
+    const eggs=oy*FEMALE_FRACTION*EGGS_PER_FEMALE*Math.min(1,t/SPAWN_RAMP_DAYS); // larvae produced once spawning ramps in
+    return {u, oy, filtRate, cumFilt, cumN, eggs, footprint:FOOTPRINT*u, wild:WILD_EQUIV_FT2*u, cost:COST_PER_UNIT*u, cf:clarityFrac()};
+  }
+
+  function renderMetrics(){
+    const c=compute(), bv=bigVol(c.cumFilt), eg=bigNum(c.eggs);
+    const cards=[
+      {label:'Filtering rate', val:fmtM(c.filtRate), unit:'million gal / day', foot:'≈50 gal per oyster, day one', accent:'var(--water-clear)'},
+      {label:'Total filtered to date', val:bv[0], unit:bv[1], foot:'since deployment', accent:'var(--teal)'},
+      {label:'Nitrogen removed to date', val:fmt(Math.round(c.cumN)), unit:'lbs (tissue assimilation)', foot:'Chesapeake Bay Program BMP', accent:'var(--coral)'},
+      {label:'Larvae released to date', val:eg[0], unit:eg[1]?eg[1]+' eggs':'eggs', foot:'restocks surrounding shoreline', accent:'var(--coral-soft)'},
+      {label:'Wild-reef equivalent', val:(c.wild/43560).toFixed(2), unit:'acres of natural reef', foot:fmt(c.wild)+' ft² equivalent', accent:'var(--teal-deep)'},
+      {label:'Cost vs. natural reef', val:'$'+(c.cost/c.wild).toFixed(2), unit:'per ft² equivalent reef', foot:'$'+fmt(c.cost)+' total project', accent:'var(--navy)'},
+    ];
+    $('metrics').innerHTML=cards.map(m=>`<div class="metric"><div class="accent" style="background:${m.accent}"></div><div class="m-label">${m.label}</div><div class="m-val">${m.val}</div><div class="m-unit">${m.unit}</div><div class="m-foot">${m.foot}</div></div>`).join('');
+    $('wildArea').textContent=fmt(c.wild)+' ft²'; $('moonArea').textContent=fmt(c.footprint)+' ft²';
+    $('moonBar').style.width=Math.max(6,(c.footprint/c.wild)*100)+'%';
+    $('moonBar').textContent='~'+Math.round((1-c.footprint/c.wild)*100)+'% smaller footprint';
+    $('wildBar').textContent=(c.wild/43560).toFixed(2)+' acres for equal biomass';
+    $('metricsAt').textContent='at '+timeLabel(state.time).toLowerCase();
+  }
+
+  // continuous water-column colors (NO thresholds -> no day-28 jump)
+  function clarityInfo(cf){
+    const clarity=0.08+cf*0.88;
+    // top, mid, bottom each interpolate murky-green -> clear-blue smoothly
+    const topMurk=[110,140,95], topClear=[124,196,224];
+    const midMurk=[70,95,58],   midClear=[58,140,176];
+    const botMurk=[40,55,30],   botClear=[14,58,82];
+    const rgb=(a,b)=>`rgb(${Math.round(lerp(a[0],b[0],clarity))},${Math.round(lerp(a[1],b[1],clarity))},${Math.round(lerp(a[2],b[2],clarity))})`;
+    return { clarity, top:rgb(topMurk,topClear), mid:rgb(midMurk,midClear), bot:rgb(botMurk,botClear), chip:rgb(midMurk,midClear) };
+  }
+
+  // ----- Cross-section build -----
+  function buildSide(){
+    // depth scale (right edge): surface=150px ... bottom=430px maps to 0..~12 ft
+    let ds=''; const sy=150, by=430, ftMax=12;
+    for(let f=0; f<=ftMax; f+=3){ const y=lerp(sy,by,f/ftMax); ds+=`<line x1="612" y1="${y.toFixed(0)}" x2="624" y2="${y.toFixed(0)}" stroke="#eaf4f8" stroke-width="1.4"/><text x="608" y="${(y+3).toFixed(0)}" text-anchor="end">${f} ft</text>`; }
+    ds+=`<line x1="618" y1="${sy}" x2="618" y2="${by}" stroke="#eaf4f8" stroke-width="1" opacity="0.5"/>`;
+    $('depthScale').innerHTML=ds;
+
+    // particles
+    const rng2=mulberry32(99); let p=''; for(let i=0;i<80;i++){ const x=rng2()*640, y=152+rng2()*280, r=0.8+rng2()*2.0; p+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r.toFixed(1)}" fill="#cdbf8e" opacity="${(0.18+rng2()*0.22).toFixed(2)}"/>`; } $('particles').innerHTML=p;
+    // shafts
+    let sh=''; for(let i=0;i<5;i++){ const x=80+i*130; sh+=`<polygon class="shaft" style="animation-delay:-${i*1.5}s" points="${x},150 ${x+26},150 ${x-30},430 ${x-70},430" fill="#dff3ff"/>`; } $('shafts').innerHTML=sh;
+    // seagrass rooted on sloping floor: floorY(x)=interp along the seabed path
+    function floorY(x){ // approximate the seabed path
+      if(x<340) return lerp(300, 350, x/340); return lerp(350, 392, (x-340)/300); }
+    const rngG=mulberry32(7); let g='<g>'; for(let i=0;i<30;i++){ const x=120+i*16+rngG()*8; const base=floorY(x)-2; const h=12+rngG()*20; g+=`<path class="grass" style="animation-delay:-${(rngG()*5).toFixed(1)}s" d="M${x.toFixed(0)} ${base.toFixed(0)} q3 -${(h/2).toFixed(0)} 0 -${h.toFixed(0)}" fill="none" stroke="#2f7a4e" stroke-width="2" stroke-linecap="round"/>`; } g+='</g>'; $('seabed').innerHTML=g;
+    // fish school
+    const rngF=mulberry32(404); let fh=''; for(let i=0;i<7;i++){ const x=120+rngF()*200, y=210+rngF()*120, s=(0.7+rngF()*0.7).toFixed(2), dur=(14+rngF()*10).toFixed(1), del=(-rngF()*14).toFixed(1); fh+=`<g class="fish" style="animation-duration:${dur}s; animation-delay:${del}s"><g transform="translate(${x.toFixed(0)},${y.toFixed(0)}) scale(${s})"><path d="M0 0 q8 -5 16 0 q-8 5 -16 0" fill="#cfe3d9"/><path d="M16 0 l6 -4 l0 8 z" fill="#cfe3d9"/></g></g>`; } $('fish').innerHTML=fh;
+
+    // reef: floating hangs just under surface; sinkable rests on floor
+    const u=state.units, sink=state.deploy==='sink', high=state.density==='high', rngR=mulberry32(55); let r=''; const startX=210, gap=40;
+    for(let i=0;i<u;i++){
+      const row=Math.floor(i/7), col=i%7, x=startX+col*gap+row*14;
+      let y; if(sink){ const fx=x; y=(fx<340?lerp(300,350,fx/340):lerp(350,392,(fx-340)/300))-12; } else { y=176+row*24; }
+      r+=`<g transform="translate(${x},${y})" opacity="${(0.97-row*0.1).toFixed(2)}">`;
+      if(!sink){ r+=`<line x1="0" y1="-26" x2="0" y2="-9" stroke="#caa96a" stroke-width="1.2"/><ellipse cx="0" cy="-28" rx="5" ry="3.4" fill="#e07a5f"/>`; }
+      r+=`<ellipse cx="0" cy="13" rx="17" ry="4" fill="#000" opacity="0.16"/>`;
+      r+=`<rect x="-16" y="-9" width="32" height="24" rx="3" fill="rgba(8,40,30,0.4)" stroke="${sink?'#1d9e75':'#34c79a'}" stroke-width="1.6"/>`;
+      const dots=high?10:7; for(let d=0;d<dots;d++){ const dx=-13+(d%4)*8+rngR()*2, dy=-5+Math.floor(d/4)*7+rngR()*2; r+=`<circle cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="${(2+rngR()*1.2).toFixed(1)}" fill="#ece1c6" stroke="#9c8a5e" stroke-width="0.4"/>`; }
+      r+=`</g>`;
+    }
+    $('reef').innerHTML=r;
+    // bubbles from reef
+    const rngB=mulberry32(321); let b=''; const count=Math.min(44,u*5); for(let i=0;i<count;i++){ const x=200+rngB()*250, y=200+rngB()*120, rr=(0.7+rngB()*1.4).toFixed(1), dur=(3+rngB()*3).toFixed(1), del=(-rngB()*5).toFixed(1); b+=`<circle class="bubble" style="animation-duration:${dur}s; animation-delay:${del}s" cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${rr}" fill="rgba(255,255,255,0.6)"/>`; } $('bubbles').innerHTML=b;
+  }
+
+  function setStop(id, off, op){ const s=$(id); s.setAttribute('offset', Math.max(0,Math.min(1,off)).toFixed(3)); s.setAttribute('stop-opacity', op); }
+
+  function updateSideClarity(){
+    const c=compute(), ci=clarityInfo(c.cf);
+    // base water color is constant — the turbidity overlay does the work
+    const sy=150, by=430, ftMax=12;
+    const visFt=0.7 + ci.clarity*10;                  // ~0.7 ft (murky) -> ~10.7 ft (clear)
+    const visY=lerp(sy, by, Math.min(1, visFt/ftMax));
+    const rectFrac=(visY-150)/290;                     // position within the turbidity rect
+    // clear band from surface down to the visible-depth line, then ramp into opaque murk
+    setStop('tb0', 0, 0);
+    setStop('tb1', Math.max(0.02, rectFrac*0.92), 0.06);
+    setStop('tb2', Math.min(0.985, rectFrac+0.16), 0.92);
+    setStop('tb3', 1, 0.96);
+    // suspended sediment: subtle, only in the lit upper zone, denser when murky
+    $('particles').style.opacity=(0.5*(1-ci.clarity)).toFixed(2);
+    $('causticLayer').setAttribute('opacity',(0.25+ci.clarity*0.4).toFixed(2));
+    $('shafts').style.opacity=(0.22+ci.clarity*0.6).toFixed(2);
+    // underwater scene stays fully drawn; the murk overlay alone governs what's visible
+    $('seabed').style.opacity=1; $('fish').style.opacity=1; $('bubbles').style.opacity=1;
+    // visible-depth line sits exactly where vision cuts off
+    $('secchi').innerHTML=
+      `<line x1="20" y1="${visY.toFixed(0)}" x2="600" y2="${visY.toFixed(0)}" stroke="#fff" stroke-width="1.4" stroke-dasharray="7 6" opacity="0.9"/>`+
+      `<rect x="20" y="${(visY-19).toFixed(0)}" width="158" height="16" rx="4" fill="rgba(8,23,38,0.72)"/>`+
+      `<text x="27" y="${(visY-7).toFixed(0)}" font-family="Helvetica" font-size="10" fill="#fff" font-weight="bold">You can see ${visFt.toFixed(1)} ft down</text>`;
+    $('clarityDot').style.background=ci.chip; $('clarityLabel').textContent='Clarity '+Math.round(ci.clarity*100)+'% · visibility '+visFt.toFixed(1)+' ft';
+  }
+
+  // ----- Bird's eye -----
+  function buildBirds(){
+    const u=state.units, sink=state.deploy==='sink', high=state.density==='high';
+    const ox=300, oy=232, uw=26, uh=16, gap=5, perRow=4, cols=Math.min(u,perRow), rows=Math.ceil(u/perRow);
+    const mbW=cols*(uw+gap)-gap, mbH=rows*(uh+gap)-gap, lin=Math.sqrt(WILD_EQUIV_FT2/525);
+    const gW=Math.min(mbW*lin,300), gH=Math.min(mbH*lin,170);
+    let g=`<rect x="${ox-10}" y="${oy-10}" width="${gW}" height="${gH}" rx="14" fill="rgba(242,204,143,0.10)" stroke="#f2cc8f" stroke-width="1.5" stroke-dasharray="7 5"/>`;
+    g+=`<text x="${ox-10}" y="${oy-16}" font-family="Helvetica" font-size="11" font-weight="bold" fill="#f2cc8f">Traditional reef, same biomass: ${fmt(WILD_EQUIV_FT2*u)} ft²</text>`;
+    $('bWild').innerHTML=g;
+    let r='';
+    for(let i=0;i<u;i++){ const col=i%perRow, row=Math.floor(i/perRow), x=ox+col*(uw+gap), y=oy+row*(uh+gap); r+=`<g transform="translate(${x},${y})">`; r+=`<rect x="0.5" y="2.5" width="${uw}" height="${uh}" rx="4" fill="#000" opacity="0.22"/>`; r+=`<rect width="${uw}" height="${uh}" rx="4" fill="${sink?'rgba(29,158,117,0.65)':'rgba(52,199,154,0.92)'}" stroke="#0f6e56" stroke-width="1"/>`; const dots=high?6:4; for(let d=0;d<dots;d++){ const dx=5+(d%3)*8, dy=4+Math.floor(d/3)*7; r+=`<circle cx="${dx}" cy="${dy}" r="1.5" fill="#ece1c6"/>`; } r+=`</g>`; }
+    r+=`<rect x="${ox-4}" y="${oy-4}" width="${mbW+8}" height="${mbH+8}" rx="6" fill="none" stroke="#34c79a" stroke-width="1.5"/>`;
+    r+=`<text x="${ox-4}" y="${oy+mbH+22}" font-family="Helvetica" font-size="11" font-weight="bold" fill="#d4f0e5">Moonbeam: ${fmt(525*u)} ft²</text>`;
+    $('bReef').innerHTML=r;
+  }
+  function updateBirdsClarity(){
+    const ci=clarityInfo(compute().cf);
+    $('bwTop').setAttribute('stop-color', ci.top); $('bwBot').setAttribute('stop-color', ci.bot);
+    $('bMurkLayer').setAttribute('opacity',(1-ci.clarity).toFixed(2));
+    $('clarityDot').style.background=ci.chip; $('clarityLabel').textContent='Clarity '+Math.round(ci.clarity*100)+'%';
+  }
+
+  // ----- Photo overlay -----
+  function buildPhotoMarker(){
+    const u=state.units, high=state.density==='high';
+    const cols=Math.min(u,4), per=high?6:4, total=Math.max(4, Math.min(u*per,16));
+    let h=''; for(let i=0;i<total;i++) h+='<i></i>';
+    $('rmBox').innerHTML=h; $('rmBox').style.gridTemplateColumns=`repeat(${cols},1fr)`;
+    document.querySelectorAll('.pbubble').forEach(b=>b.remove());
+    const rng=mulberry32(7), layer=$('photoLayer');
+    for(let i=0;i<10;i++){ const b=document.createElement('div'); b.className='pbubble'; const sz=(2+rng()*3).toFixed(1); b.style.width=sz+'px'; b.style.height=sz+'px'; b.dataset.ox=(rng()*40-20).toFixed(0); b.style.animationDuration=(3+rng()*3).toFixed(1)+'s'; b.style.animationDelay=(-rng()*5).toFixed(1)+'s'; layer.appendChild(b); }
+    positionMarker();
+  }
+  function positionMarker(){ $('reefMarker').style.left=reefPos.x+'%'; $('reefMarker').style.top=reefPos.y+'%'; document.querySelectorAll('.pbubble').forEach(b=>{ b.style.left=`calc(${reefPos.x}% + ${b.dataset.ox}px)`; b.style.top=`calc(${reefPos.y}% - 6px)`; }); }
+  function updatePhotoClarity(){
+    if(!hasPhoto) return;
+    const c=compute(), ci=clarityInfo(c.cf);
+    const murkA=(0.42*(1-ci.clarity)).toFixed(2), clearA=(0.30*ci.clarity).toFixed(2);
+    $('clarityTint').style.background=`radial-gradient(circle at ${reefPos.x}% ${reefPos.y}%, rgba(120,185,215,${clearA}) 0%, rgba(120,185,215,${(clearA*0.4).toFixed(2)}) 30%, rgba(74,92,55,${murkA}) 78%)`;
+    document.querySelectorAll('.pbubble').forEach(b=> b.style.opacity=ci.clarity.toFixed(2));
+    const bv=bigVol(c.cumFilt);
+    $('pcBig').textContent=Math.round(ci.clarity*100)+'% clearer water';
+    $('pcSub').textContent=`${bv[0]} ${bv[1]} filtered · ${timeLabel(state.time).toLowerCase()}`;
+    $('clarityDot').style.background=ci.chip; $('clarityLabel').textContent='Clarity '+Math.round(ci.clarity*100)+'%';
+  }
+
+  function buildScene(){
+    $('sceneSide').style.display = state.view==='side'?'block':'none';
+    $('sceneBirds').style.display = state.view==='birds'?'block':'none';
+    $('photoLayer').style.display = state.view==='photo'?'block':'none';
+    if(state.view==='side') buildSide();
+    else if(state.view==='birds') buildBirds();
+    else { $('photoEmpty').style.display=hasPhoto?'none':'flex'; $('reefMarker').style.display=hasPhoto?'block':'none'; $('photoCallout').style.display=hasPhoto?'block':'none'; if(hasPhoto) buildPhotoMarker(); }
+    updateClarity();
+  }
+  function updateClarity(){ if(state.view==='side') updateSideClarity(); else if(state.view==='birds') updateBirdsClarity(); else updatePhotoClarity(); }
+  function fullRender(){ buildScene(); renderMetrics(); }
+
+  // ----- Play -----
+  let playing=false, rafId=null, lastTs=null; const PLAY_MS=16000;
+  function setIcon(){ $('playIcon').innerHTML = playing ? '<rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/>' : '<path d="M3 2 L13 8 L3 14 Z"/>'; }
+  function step(ts){ if(!playing) return; if(lastTs==null) lastTs=ts; const dt=ts-lastTs; lastTs=ts; state.time=Math.min(365, state.time+dt*(365/PLAY_MS)); $('time').value=Math.round(state.time); updateTimeUI(); updateClarity(); renderMetrics(); if(state.time>=365){ playing=false; setIcon(); return; } rafId=requestAnimationFrame(step); }
+  function play(){ if(state.time>=365) state.time=0; playing=true; setIcon(); lastTs=null; rafId=requestAnimationFrame(step); }
+  function pause(){ playing=false; setIcon(); if(rafId) cancelAnimationFrame(rafId); }
+  $('playBtn').addEventListener('click', ()=> playing?pause():play());
+  function updateTimeUI(){ $('timeLabel').childNodes[0].nodeValue=timeLabel(state.time)+' '; $('timeDays').textContent = Math.round(state.time)===0?'· installed':'· day '+Math.round(state.time); }
+
+  // ----- Upload (FileReader data URL: works in sandboxed iframes) -----
+  function openFile(){ $('fileInput').click(); }
+  $('uploadBtn').addEventListener('click', openFile);
+  $('uploadBtn2').addEventListener('click', openFile);
+  $('fileInput').addEventListener('change', e=>{
+    const f=e.target.files && e.target.files[0]; if(!f) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      $('photoImg').src=ev.target.result; hasPhoto=true;
+      $('photoTab').disabled=false;
+      document.querySelectorAll('#view-toggle button').forEach(x=>x.classList.remove('active'));
+      $('photoTab').classList.add('active'); state.view='photo';
+      $('viewHint').textContent="Drag the reef over the water, then play the timeline to show the clarity change.";
+      buildScene(); renderMetrics();
+    };
+    reader.onerror=()=>{ alert('Could not read that image — please try another file.'); };
+    reader.readAsDataURL(f);
+  });
+
+  // ----- Drag reef -----
+  (function(){
+    const m=$('reefMarker'); let dragging=false;
+    function pt(ev){ const r=$('photoLayer').getBoundingClientRect(); const cx=(ev.touches?ev.touches[0].clientX:ev.clientX), cy=(ev.touches?ev.touches[0].clientY:ev.clientY); reefPos.x=Math.max(5,Math.min(95,((cx-r.left)/r.width)*100)); reefPos.y=Math.max(8,Math.min(92,((cy-r.top)/r.height)*100)); positionMarker(); updatePhotoClarity(); }
+    m.addEventListener('mousedown', e=>{dragging=true; e.preventDefault();});
+    m.addEventListener('touchstart', e=>{dragging=true; e.preventDefault();}, {passive:false});
+    window.addEventListener('mousemove', e=>{ if(dragging) pt(e); });
+    window.addEventListener('touchmove', e=>{ if(dragging) pt(e); }, {passive:false});
+    window.addEventListener('mouseup', ()=>dragging=false); window.addEventListener('touchend', ()=>dragging=false);
+  })();
+
+  // ----- Controls -----
+  $('time').addEventListener('input', e=>{ if(playing) pause(); state.time=+e.target.value; updateTimeUI(); updateClarity(); renderMetrics(); });
+  $('units').addEventListener('input', e=>{ state.units=+e.target.value; $('unitsVal').textContent=state.units; $('unitsHint').textContent=`${state.units} unit${state.units>1?'s':''} · ${fmt(525*state.units)} ft² total footprint`; fullRender(); });
+  $('water').addEventListener('input', e=>{ state.water=+e.target.value; $('waterVal').textContent=state.water<35?'Stressed':state.water<70?'Brackish':'Mesohaline'; updateClarity(); renderMetrics(); });
+  document.querySelectorAll('#density button').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('#density button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); state.density=b.dataset.d; $('densityVal').textContent=state.density==='high'?'High':'Base'; fullRender(); }));
+  document.querySelectorAll('#deploy button').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('#deploy button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); state.deploy=b.dataset.t; $('deployVal').textContent=state.deploy==='float'?'Floating':'Sinkable'; fullRender(); }));
+  document.querySelectorAll('#view-toggle button').forEach(b=>b.addEventListener('click',()=>{ if(b.disabled) return; document.querySelectorAll('#view-toggle button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); state.view=b.dataset.view; $('viewHint').textContent = state.view==='birds' ? "Top-down site plan — the dashed gold area is the bottom a traditional reef would need for the same biomass." : state.view==='photo' ? "Drag the reef over the water, then play the timeline to show the clarity change." : "The dashed line is visibility depth — how far down you can see as the reef clears the water."; buildScene(); }));
+  $('reset').addEventListener('click', ()=>{ pause(); const v=state.view; state=Object.assign({}, DEFAULT); state.view=v; $('time').value=90; $('units').value=3; $('unitsVal').textContent='3'; $('unitsHint').textContent='3 units · 1,575 ft² total footprint'; $('water').value=70; $('waterVal').textContent='Mesohaline'; document.querySelectorAll('#density button').forEach(x=>x.classList.toggle('active', x.dataset.d==='base')); $('densityVal').textContent='Base'; document.querySelectorAll('#deploy button').forEach(x=>x.classList.toggle('active', x.dataset.t==='float')); $('deployVal').textContent='Floating'; updateTimeUI(); fullRender(); });
+
+  updateTimeUI(); fullRender();
+})();
+</script>
+</body>
+</html>
